@@ -1,0 +1,17 @@
+{
+  "_objectId": "aksfhajfhajsf",
+  "title": "title",
+  "publication_year": 2024,
+  "copies": [
+    {
+      "branch": "tal",
+      "status": "tal"
+    },
+    {
+      "branch": "f",
+      "status": "g"
+    }
+  ],
+  "authors": ["José da Silva", "Antonio Alves"],
+  "tags": ["Mistério", "Comédia"]
+}
