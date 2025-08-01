@@ -5,3 +5,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
+  graphdb:
+    image: neo4j
+    ports:
+      - 7474:7474
+      - 7687:7687
