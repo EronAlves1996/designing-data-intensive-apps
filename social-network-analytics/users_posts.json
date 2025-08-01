@@ -1,0 +1,10 @@
+{
+  "users": [
+    { "id": 1, "name": "Alice", "posts": [{ "id": 101, "content": "Hello!" }] },
+    {
+      "id": 2,
+      "name": "Bob",
+      "posts": [{ "id": 102, "content": "Good morning!" }]
+    }
+  ]
+}
