@@ -20,20 +20,24 @@ func (n *Node[T]) Insert(v T) {
 		if n.Left == nil {
 			nn := NewNode(v, n.compare)
 			n.Left = &nn
+			n.balanceFactor = -1
 			return
 		}
 
 		n.Left.Insert(v)
+		n.balanceFactor += n.Left.balanceFactor
 		return
 	}
 
 	if n.Right == nil {
 		nn := NewNode(v, n.compare)
 		n.Right = &nn
+		n.balanceFactor += 1
 		return
 	}
 
 	n.Right.Insert(v)
+	n.balanceFactor += n.Right.balanceFactor
 }
 
 func (n *Node[T]) Ordered() []T {
