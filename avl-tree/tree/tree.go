@@ -17,6 +17,22 @@ func NewNode[T any](value T, compare func(T, T) int) Node[T] {
 	}
 }
 
+func rotateRight[T any](n *Node[T]) *Node[T] {
+	actual := n
+	firstChild := n.Right
+	firstChild.Left = actual
+	actual.Right = nil
+	return firstChild
+}
+
+func rotateLeft[T any](n *Node[T]) *Node[T] {
+	actual := n
+	firstChild := n.Left
+	firstChild.Right = actual
+	actual.Left = nil
+	return firstChild
+}
+
 func (n *Node[T]) InsertAux(v T, h int) int {
 	if n.compare(v, n.Value) < 0 {
 		if n.Left == nil {
@@ -26,6 +42,12 @@ func (n *Node[T]) InsertAux(v T, h int) int {
 			return n.balanceFactor
 		}
 
+		b := n.Left.InsertAux(v, h-1)
+		if b > 1 {
+			n.Left = rotateLeft(n.Left)
+			// rotations produce zero balance factor
+			return n.balanceFactor
+		}
 		n.balanceFactor += n.Left.InsertAux(v, h-1)
 		return n.balanceFactor
 	}
@@ -37,7 +59,13 @@ func (n *Node[T]) InsertAux(v T, h int) int {
 		return n.balanceFactor
 	}
 
-	n.balanceFactor += n.Right.InsertAux(v, h+1)
+	b := n.Right.InsertAux(v, h+1)
+	if b > 1 {
+		n.Right = rotateRight(n.Right)
+		// rotations produce zero balance factor
+		return n.balanceFactor
+	}
+	n.balanceFactor += b
 	return n.balanceFactor
 }
 
