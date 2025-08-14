@@ -1,7 +1,5 @@
 package tree
 
-import "fmt"
-
 type Node[T any] struct {
 	Value         T
 	balanceFactor int
@@ -17,93 +15,25 @@ func NewNode[T any](value T, compare func(T, T) int) Node[T] {
 	}
 }
 
-func rotateRight[T any](n *Node[T]) *Node[T] {
-	actual := n
-	firstChild := n.Right
-	firstChild.Left = actual
-	actual.Right = nil
-	return firstChild
-}
-
-func rotateLeft[T any](n *Node[T]) *Node[T] {
-	actual := n
-	firstChild := n.Left
-	firstChild.Right = actual
-	actual.Left = nil
-	return firstChild
-}
-
-func (n *Node[T]) InsertAux(v T, h int) int {
+func (n *Node[T]) Insert(v T) {
 	if n.compare(v, n.Value) < 0 {
 		if n.Left == nil {
 			nn := NewNode(v, n.compare)
 			n.Left = &nn
-			n.balanceFactor -= 1
-			return n.balanceFactor
+			return
 		}
 
-		b := n.Left.InsertAux(v, h-1)
-		if b > 1 {
-			n.Left = rotateLeft(n.Left)
-			// rotations produce zero balance factor
-			return n.balanceFactor
-		}
-		n.balanceFactor += n.Left.InsertAux(v, h-1)
-		return n.balanceFactor
+		n.Left.Insert(v)
+		return
 	}
 
 	if n.Right == nil {
 		nn := NewNode(v, n.compare)
 		n.Right = &nn
-		n.balanceFactor += 1
-		return n.balanceFactor
+		return
 	}
 
-	b := n.Right.InsertAux(v, h+1)
-	if b > 1 {
-		n.Right = rotateRight(n.Right)
-		// rotations produce zero balance factor
-		return n.balanceFactor
-	}
-	n.balanceFactor += b
-	return n.balanceFactor
-}
-
-func (n *Node[T]) DebugBalance() {
-	fmt.Println(n.balanceFactor)
-}
-
-func (n *Node[T]) Insert(v T) {
-	n.InsertAux(v, 0)
-}
-
-func (n *Node[T]) Remove(v T) *T {
-	if n.compare(n.Value, v) == 0 {
-		return &n.Value
-	}
-
-	if n.compare(v, n.Value) < 0 {
-		if n.Left == nil {
-			return nil
-		}
-
-		r := n.Left.Remove(v)
-		if r != nil {
-			n.Left = nil
-			return nil
-		}
-	}
-
-	if n.Right == nil {
-		return nil
-	}
-
-	r := n.Right.Remove(v)
-	if r != nil {
-		n.Right = nil
-	}
-
-	return nil
+	n.Right.Insert(v)
 }
 
 func (n *Node[T]) Ordered() []T {
