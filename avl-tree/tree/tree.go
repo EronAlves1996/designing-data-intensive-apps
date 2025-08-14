@@ -1,11 +1,13 @@
 package tree
 
+import "fmt"
+
 type Node[T any] struct {
-	Value   T
-	height  int
-	Left    *Node[T]
-	Right   *Node[T]
-	compare func(T, T) int
+	Value         T
+	balanceFactor int
+	Left          *Node[T]
+	Right         *Node[T]
+	compare       func(T, T) int
 }
 
 func NewNode[T any](value T, compare func(T, T) int) Node[T] {
@@ -15,25 +17,36 @@ func NewNode[T any](value T, compare func(T, T) int) Node[T] {
 	}
 }
 
-func (n *Node[T]) Insert(v T) {
+func (n *Node[T]) InsertAux(v T, h int) int {
 	if n.compare(v, n.Value) < 0 {
 		if n.Left == nil {
 			nn := NewNode(v, n.compare)
 			n.Left = &nn
-			return
+			n.balanceFactor -= 1
+			return n.balanceFactor
 		}
 
-		n.Left.Insert(v)
-		return
+		n.balanceFactor += n.Left.InsertAux(v, h-1)
+		return n.balanceFactor
 	}
 
 	if n.Right == nil {
 		nn := NewNode(v, n.compare)
 		n.Right = &nn
-		return
+		n.balanceFactor += 1
+		return n.balanceFactor
 	}
 
-	n.Right.Insert(v)
+	n.balanceFactor += n.Right.InsertAux(v, h+1)
+	return n.balanceFactor
+}
+
+func (n *Node[T]) DebugBalance() {
+	fmt.Println(n.balanceFactor)
+}
+
+func (n *Node[T]) Insert(v T) {
+	n.InsertAux(v, 0)
 }
 
 func (n *Node[T]) Remove(v T) *T {

@@ -12,10 +12,15 @@ func main() {
 	})
 
 	t.Insert(15)
+	t.DebugBalance()
 	t.Insert(40)
+	t.DebugBalance()
 	t.Insert(5)
+	t.DebugBalance()
 	t.Insert(-5)
+	t.DebugBalance()
 	t.Insert(100)
+	t.DebugBalance()
 
 	fmt.Println(t.Ordered())
 }
