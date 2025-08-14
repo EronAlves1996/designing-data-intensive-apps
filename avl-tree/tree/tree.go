@@ -64,3 +64,19 @@ func (n *Node[T]) Remove(v T) *T {
 
 	return nil
 }
+
+func (n *Node[T]) Ordered() []T {
+	r := make([]T, 0)
+
+	if n.Left != nil {
+		r = append(r, n.Left.Ordered()...)
+	}
+
+	r = append(r, n.Value)
+
+	if n.Right != nil {
+		r = append(r, n.Right.Ordered()...)
+	}
+
+	return r
+}
