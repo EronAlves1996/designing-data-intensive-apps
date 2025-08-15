@@ -30,7 +30,15 @@ func rotateRight[T any](n *Node[T]) *Node[T] {
 	actual := n
 	child := actual.Left
 	actual.Left = nil
-	child.Right = actual
+	if child.Right == nil {
+		child.Right = actual
+	} else {
+		if child.Right.height > 1 {
+			child = rotateLeft(child)
+			child.Right.Right = actual
+			child.Right = rotateLeft(child.Right)
+		}
+	}
 	actual.height = height(actual)
 	child.height = height(child)
 	return child
@@ -44,6 +52,9 @@ func max(a, b int) int {
 }
 
 func rotate[T any](n *Node[T]) *Node[T] {
+	if n == nil {
+		return n
+	}
 	diff := (height(n.Right) - height(n.Left))
 	if diff > 1 {
 		r := rotateLeft(n)
