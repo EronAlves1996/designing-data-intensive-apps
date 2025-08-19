@@ -20,6 +20,15 @@ func rotateLeft[T any](n *Node[T]) *Node[T] {
 	actual := n
 	child := actual.Right
 	actual.Right = nil
+	if child.Left == nil {
+		child.Left = actual
+	} else {
+		if child.Left.height > 1 {
+			child = rotateRight(child)
+		}
+		child.Left.Left = actual
+		child.Left = rotateRight(child.Left)
+	}
 	child.Left = actual
 	actual.height = height(actual)
 	child.height = height(child)

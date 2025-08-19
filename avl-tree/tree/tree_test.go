@@ -254,18 +254,36 @@ func TestInsertNotSequentialWithHardDisbalancing2(t *testing.T) {
 	}
 }
 
-// func TestInsertBalanced(t *testing.T) {
-// 	n := createBaseCase()
-// 	r := &n
-// 	AssertEquals(r.balanceFactor, 0, t)
+func TestInsertNotSequentialWithHardDisbalancing3(t *testing.T) {
+	n := createBaseCase()
+	a := &n
+	a = Insert(a, 2)
+	a = Insert(a, -2)
+	a = Insert(a, 3)
+	a = Insert(a, 4)
+	a = Insert(a, 5)
 
-// 	r = Insert(r, -1)
-// 	AssertEquals(r.balanceFactor, -1, t)
+	if a.Value != 3 {
+		t.Fatalf("Expect %d found %d", 3, a.Value)
+	}
 
-// 	r = Insert(r, 2)
-// 	AssertEquals(r.balanceFactor, 0, t)
+	if a.Right.Value != 4 {
+		t.Fatalf("Expect %d found %d", 4, a.Right.Value)
+	}
 
-// 	AssertEquals(r.Value, 1, t)
-// 	AssertEquals(r.Left.Value, -1, t)
-// 	AssertEquals(r.Right.Value, 2, t)
-// }
+	if a.Right.Right.Value != 5 {
+		t.Fatalf("Expect %d found %d", 5, a.Right.Right.Value)
+	}
+
+	if a.Left.Value != 1 {
+		t.Fatalf("Expect %d found %d", 1, a.Left.Value)
+	}
+
+	if a.Left.Left.Value != -2 {
+		t.Fatalf("Expect %d found %d", -2, a.Left.Left.Value)
+	}
+
+	if a.Left.Right.Value != 2 {
+		t.Fatalf("Expect %d found %d", 2, a.Left.Right.Value)
+	}
+}
