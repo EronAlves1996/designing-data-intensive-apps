@@ -44,12 +44,9 @@ func rotateRight[T any](n *Node[T]) *Node[T] {
 	} else {
 		if child.Right.height > 1 {
 			child = rotateLeft(child)
-			child.Right.Right = actual
-			child.Right = rotateLeft(child.Right)
-		} else {
-			child.Right.Right = actual
-			child.Right = rotateLeft(child.Right)
 		}
+		child.Right.Right = actual
+		child.Right = rotateLeft(child.Right)
 	}
 	actual.height = height(actual)
 	child.height = height(child)
