@@ -10,3 +10,7 @@
 ## Part 3
 
 4. Logged users always have some id. In every session, make some affinity between the id of the user and a replica where he should read. He will always read from that replica. Let's say we have two node followers. We gonna say that the even ids goes for node A, and not-even ids goes for node B.
+
+## Part 4
+
+5. Session affinity is good, but we may have to redirect the requests if some node is down, breaking this affinity for some time and, maybe, by the strategy choose, we can overhead some node or introduce complexity.
