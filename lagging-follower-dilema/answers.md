@@ -7,3 +7,7 @@
 
 3. The first strategy is to read your own write. That means to route the reads for a resource that was recently updated for the leader, because it's supposed to have the more fresh data (the writes go for it), and define some until the read for the resource go for the follower. Another strategy is to route contents that are editable by the user always to the leader and other content can be routed to the followers.
 4. A simple strategy to employ is to classify routing by the resources being read. That way, if the client is reading the posts, all posts reading go to follower A and all comments reading go to follower B.
+
+## Part 3
+
+5. If a system has a considerable number of writes, the leader database can be overheaded by the writes plus reads it routes to them, making the complexities replication and distribution of the database worse than the benefits of making it, and your followers will be freed and not used at all. This type of strategy only works if the application is a typical read more than write.
