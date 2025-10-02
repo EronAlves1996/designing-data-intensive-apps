@@ -35,6 +35,19 @@ func clientRequest() {
 	fmt.Println("Client request returned")
 }
 
+func clientRequestImproved(successThreshold int) {
+	var wg sync.WaitGroup
+	wg.Add(successThreshold)
+	for i := range 10 {
+		go func(nodeID int) {
+			queryNode(nodeID)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	fmt.Println("Client request returned")
+}
+
 func main() {
 	times := make([]int, 0, 100)
 	for i := range 100 {
