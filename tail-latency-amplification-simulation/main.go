@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -45,18 +44,26 @@ func clientRequest() {
 func clientRequestImproved(successThreshold int) {
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
-	var counter int32
+	defer cancel()
+
+	responses := make(chan string, 10)
 	for i := range 10 {
 		wg.Go(func() {
-			queryNode(ctx, i)
-			result := atomic.AddInt32(&counter, 1)
-			if (result + 1) > int32(successThreshold) {
-				cancel()
+			select {
+			case <-ctx.Done():
+				return
+			case responses <- queryNode(ctx, i):
 			}
 		})
 	}
-	wg.Wait()
+
+	for range successThreshold {
+		<-responses
+	}
+	cancel()
 	fmt.Println("Client request returned")
+
+	wg.Wait()
 }
 
 func runSimulation(successThreshold int) string {
