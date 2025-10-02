@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 )
 
-func queryNode(_ int) string {
+func queryNode(nodeID int) string {
 	response := "OK"
 	prop := rand.Float32()
 	ms := 10
@@ -16,5 +18,18 @@ func queryNode(_ int) string {
 	}
 
 	<-time.After(time.Duration(ms) * time.Millisecond)
+	fmt.Printf("Node %d responding\n", nodeID)
 	return response
+}
+
+func clientRequest() {
+	var wg sync.WaitGroup
+	for i := range 10 {
+		n := i
+		wg.Go(func() {
+			queryNode(n)
+		})
+	}
+	wg.Wait()
+	fmt.Println("Client request returned")
 }
