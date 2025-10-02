@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-func queryNode(nodeID int) string {
+func queryNode(ctx context.Context, nodeID int) string {
 	response := "OK"
 	prop := rand.Float32()
 	ms := 10
@@ -18,17 +20,22 @@ func queryNode(nodeID int) string {
 		ms = rand.Intn(800) + 200
 	}
 
-	<-time.After(time.Duration(ms) * time.Millisecond)
-	fmt.Printf("Node %d responding\n", nodeID)
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Request for node %d discarded: threshold achieved\n", nodeID)
+	case <-time.After(time.Duration(ms) * time.Millisecond):
+		fmt.Printf("Node %d responding\n", nodeID)
+	}
 	return response
 }
 
 func clientRequest() {
 	var wg sync.WaitGroup
+	ctx := context.Background()
 	for i := range 10 {
 		n := i
 		wg.Go(func() {
-			queryNode(n)
+			queryNode(ctx, n)
 		})
 	}
 	wg.Wait()
@@ -37,22 +44,26 @@ func clientRequest() {
 
 func clientRequestImproved(successThreshold int) {
 	var wg sync.WaitGroup
-	wg.Add(successThreshold)
+	ctx, cancel := context.WithCancel(context.Background())
+	var counter int32
 	for i := range 10 {
-		go func(nodeID int) {
-			queryNode(nodeID)
-			wg.Done()
-		}(i)
+		wg.Go(func() {
+			queryNode(ctx, i)
+			result := atomic.AddInt32(&counter, 1)
+			if (result + 1) > int32(successThreshold) {
+				cancel()
+			}
+		})
 	}
 	wg.Wait()
 	fmt.Println("Client request returned")
 }
 
-func main() {
+func runSimulation(successThreshold int) string {
 	times := make([]int, 0, 100)
 	for i := range 100 {
 		start := time.Now()
-		clientRequest()
+		clientRequestImproved(successThreshold)
 		elapsed := time.Since(start)
 		fmt.Printf("Request %d took %d ms to complete\n", i, elapsed.Milliseconds())
 		times = append(times, int(elapsed.Milliseconds()))
@@ -64,5 +75,14 @@ func main() {
 		total += a
 	}
 	avg := int(total) / 100
-	fmt.Printf("The avg response time is %d ms and the p95 is %d ms\n", avg, p95)
+	return fmt.Sprintf("For a successThreshold %d, The avg response time is %d ms and the p95 is %d ms\n", successThreshold, avg, p95)
+}
+
+func main() {
+	stats9 := runSimulation(9)
+	stats7 := runSimulation(7)
+	stats8 := runSimulation(8)
+	fmt.Print(stats9)
+	fmt.Print(stats7)
+	fmt.Print(stats8)
 }
