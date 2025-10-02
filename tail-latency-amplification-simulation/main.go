@@ -42,18 +42,15 @@ func clientRequest() {
 }
 
 func clientRequestImproved(successThreshold int) {
-	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	responses := make(chan string, 10)
+
+	var wg sync.WaitGroup
 	for i := range 10 {
 		wg.Go(func() {
-			select {
-			case <-ctx.Done():
-				return
-			case responses <- queryNode(ctx, i):
-			}
+			responses <- queryNode(ctx, i)
 		})
 	}
 
