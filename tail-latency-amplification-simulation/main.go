@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"slices"
 	"sync"
 	"time"
 )
@@ -32,4 +33,23 @@ func clientRequest() {
 	}
 	wg.Wait()
 	fmt.Println("Client request returned")
+}
+
+func main() {
+	times := make([]int, 0, 100)
+	for i := range 100 {
+		start := time.Now()
+		clientRequest()
+		elapsed := time.Since(start)
+		fmt.Printf("Request %d took %d ms to complete\n", i, elapsed.Milliseconds())
+		times = append(times, int(elapsed.Milliseconds()))
+	}
+	slices.Sort(times)
+	total := 0
+	p95 := times[94]
+	for _, a := range times {
+		total += a
+	}
+	avg := int(total) / 100
+	fmt.Printf("The avg response time is %d ms and the p95 is %d ms\n", avg, p95)
 }
