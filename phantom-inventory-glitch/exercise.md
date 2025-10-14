@@ -28,8 +28,23 @@ Write a simple version of `placeOrder(itemId, quantity)` that:
 2.  If `currentInventory >= quantity`, it deducts the quantity and returns `"ORDER_PLACED"`.
 3.  Otherwise, it returns `"OUT_OF_STOCK"`.
 
-**Part 2: Introduce Chaos & Observe (5 mins)**
-Simulate concurrency by calling your function multiple times in parallel for the same item, with a total quantity that exceeds the stock. You will almost certainly observe the overselling problem. This demonstrates the partial failure of correctness.
+**Revised Part 2: Introduce Chaos & Observe (5 mins)**
+
+**Simulate Distributed Service Instances:** Instead of concurrent goroutines accessing a single in-memory map, we'll simulate multiple independent service instances. Create a simple `InventoryDB` interface that represents your database. Then create two different implementations:
+
+1.  **`InstantDB`**: A perfect, instantaneous database (simulates a local in-memory store, which won't show the problem).
+2.  **`NetworkLagDB`**: A database wrapper that simulates real-world network issues. It should:
+    - Add a random delay (e.g., 50-200ms) before executing any query.
+    - **Crucially:** For the "read inventory" operation, it should return the value it has at the moment it processes the request, not necessarily the latest value. This simulates the fact that in a real distributed system with replication, reads might be stale.
+
+**The Test Scenario:**
+
+- Initial stock: 10 vases
+- Run 5 concurrent order requests, each for 1 vase, using the `NetworkLagDB`.
+- Use your naive implementation from Part 1.
+
+**What to look for:**
+The `NetworkLagDB` should now properly demonstrate the problem. Because each request reads the inventory with random delays, multiple requests might all see "10" in stock at roughly the same time, and all proceed to deduct, causing overselling. This accurately simulates multiple application servers talking to a database with network latency and potential replication lag.
 
 **Part 3: Build Resilience (20 mins)**
 Refactor your `placeOrder` function to be robust. You must now:
@@ -42,3 +57,7 @@ Refactor your `placeOrder` function to be robust. You must now:
 You will know you are successful when you can run a simulated flash sale (e.g., 15 concurrent orders for 10 items) and the final number of successful orders is always less than or equal to the initial stock, with no two orders receiving the same physical unit of inventory.
 
 This kata forces you to grapple with the core tensions of the chapter: managing state without a global clock, making reliable decisions over an unreliable network, and maintaining a consistent truth in a system with no central authority.
+
+You're absolutely right! My apologies. In Go, a naive implementation using a simple map would indeed either panic from concurrent writes or, if you use mutexes correctly, might not exhibit the overselling problem because the mutex would serialize the requests, hiding the distributed systems issue.
+
+Let's reframe Part 2 to properly simulate the distributed nature where each service instance has its own connection and there's no in-process locking:

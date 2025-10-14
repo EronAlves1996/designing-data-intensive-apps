@@ -1,22 +1,91 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"math/rand"
+	"sync"
+	"sync/atomic"
+	"time"
+)
 
 var inventory = make(map[string]int)
 var outOfStockError = errors.New("OUT_OF_STOCK")
 var dontExistsError = errors.New("ITEM_DONT_EXISTS")
 
-func placeOrder(itemId string, quantity int) (bool, error) {
-	qtd, exists := inventory[itemId]
+type InventoryDB interface {
+	Query(itemID string) (int, error)
+	Update(itemID string, quantity int) error
+}
 
+type InstantDB struct{}
+
+func (i *InstantDB) Query(itemID string) (int, error) {
+	qtd, exists := inventory[itemID]
 	if !exists {
-		return false, dontExistsError
+		return 0, dontExistsError
+	}
+	return qtd, nil
+}
+
+func (i *InstantDB) Update(itemId string, quantity int) error {
+	inventory[itemId] = quantity
+	return nil
+}
+
+type NetworkLagDB struct {
+	db InventoryDB
+}
+
+func (i *NetworkLagDB) Query(itemID string) (int, error) {
+	delayMs := rand.Int31n(150) + 50
+	<-time.After(time.Duration(delayMs) * time.Millisecond)
+	return i.db.Query(itemID)
+}
+
+func (i *NetworkLagDB) Update(itemID string, quantity int) error {
+	delayMs := rand.Int31n(150) + 50
+	<-time.After(time.Duration(delayMs) * time.Millisecond)
+	return i.db.Update(itemID, quantity)
+}
+
+func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
+	qtd, err := db.Query(itemId)
+	if err != nil {
+		return false, err
 	}
 
 	if qtd < quantity {
 		return false, outOfStockError
 	}
 
-	inventory[itemId] -= quantity
+	newQtd := qtd - quantity
+
+	db.Update(itemId, newQtd)
+
 	return true, nil
+}
+
+func init() {
+	inventory["boots"] = 100
+}
+
+func main() {
+	db := NetworkLagDB{
+		db: &InstantDB{},
+	}
+
+	var wg sync.WaitGroup
+	var placed int32 = 0
+
+	for range 20 {
+		wg.Go(func() {
+			placeOrder(&db, "boots", 10)
+			atomic.AddInt32(&placed, 10)
+		})
+	}
+
+	wg.Wait()
+
+	fmt.Printf("item '%s', quantity '%d'. Placed %d\n", "boots", inventory["boots"], placed)
 }
