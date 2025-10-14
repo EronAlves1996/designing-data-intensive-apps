@@ -57,7 +57,3 @@ Refactor your `placeOrder` function to be robust. You must now:
 You will know you are successful when you can run a simulated flash sale (e.g., 15 concurrent orders for 10 items) and the final number of successful orders is always less than or equal to the initial stock, with no two orders receiving the same physical unit of inventory.
 
 This kata forces you to grapple with the core tensions of the chapter: managing state without a global clock, making reliable decisions over an unreliable network, and maintaining a consistent truth in a system with no central authority.
-
-You're absolutely right! My apologies. In Go, a naive implementation using a simple map would indeed either panic from concurrent writes or, if you use mutexes correctly, might not exhibit the overselling problem because the mutex would serialize the requests, hiding the distributed systems issue.
-
-Let's reframe Part 2 to properly simulate the distributed nature where each service instance has its own connection and there's no in-process locking:

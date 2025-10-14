@@ -16,12 +16,9 @@ var dontExistsError = errors.New("ITEM_DONT_EXISTS")
 type InventoryDB interface {
 	Query(itemID string) (int, error)
 	Update(itemID string, quantity int) error
-	GetTransaction()
-	Commit()
 }
 
 type InstantDB struct {
-	lock *sync.Mutex
 }
 
 func (i *InstantDB) Query(itemID string) (int, error) {
@@ -35,14 +32,6 @@ func (i *InstantDB) Query(itemID string) (int, error) {
 func (i *InstantDB) Update(itemId string, quantity int) error {
 	inventory[itemId] = quantity
 	return nil
-}
-
-func (i *InstantDB) GetTransaction() {
-	i.lock.Lock()
-}
-
-func (i *InstantDB) Commit() {
-	i.lock.Unlock()
 }
 
 type NetworkLagDB struct {
@@ -61,25 +50,13 @@ func (i *NetworkLagDB) Update(itemID string, quantity int) error {
 	return i.db.Update(itemID, quantity)
 }
 
-func (i *NetworkLagDB) GetTransaction() {
-	delayMs := rand.Int31n(150) + 50
-	<-time.After(time.Duration(delayMs) * time.Millisecond)
-	i.db.GetTransaction()
-}
-
-func (i *NetworkLagDB) Commit() {
-	delayMs := rand.Int31n(150) + 50
-	<-time.After(time.Duration(delayMs) * time.Millisecond)
-	i.db.Commit()
-}
-
 func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
-	db.GetTransaction()
-	defer db.Commit()
 	qtd, err := db.Query(itemId)
 	if err != nil {
 		return false, err
 	}
+
+	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
 
 	if qtd < quantity {
 		return false, outOfStockError
@@ -97,11 +74,8 @@ func init() {
 }
 
 func main() {
-	m := sync.Mutex{}
 	db := NetworkLagDB{
-		db: &InstantDB{
-			lock: &m,
-		},
+		db: &InstantDB{},
 	}
 
 	var wg sync.WaitGroup
@@ -110,7 +84,7 @@ func main() {
 	for range 20 {
 		wg.Go(func() {
 			v, err := placeOrder(&db, "boots", 10)
-			if err != nil && v {
+			if err == nil && v {
 				atomic.AddInt32(&placed, 10)
 			}
 		})
