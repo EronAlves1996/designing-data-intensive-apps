@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+var reservationId int32 = 0
+var reservations = make(map[string]int)
 var inventory = make(map[string]int)
 var outOfStockError = errors.New("OUT_OF_STOCK")
 var dontExistsError = errors.New("ITEM_DONT_EXISTS")
@@ -16,10 +18,10 @@ var invalidReservation = errors.New("INVALID_RESERVATION")
 
 type InventoryDB interface {
 	Query(itemID string) (int, error)
-	TryReserve(itemID string, quantity int) error
+	TryReserve(itemID string, quantity int) (int32, error)
 	Update(itemID string, quantity int) error
-	ReleaseReservation(itemID string, quantity int) error
-	ConfirmReservation(itemID string, quantity int) error
+	ReleaseReservation(itemID string, reservationID int32) error
+	ConfirmReservation(itemID string, reservationID int32) error
 }
 
 type InstantDB struct {
@@ -38,50 +40,49 @@ func (i *InstantDB) Update(itemId string, quantity int) error {
 	return nil
 }
 
-func (i *InstantDB) TryReserve(itemId string, quantity int) error {
+func buildReservationKey(itemID string, reservationID int32) string {
+	return fmt.Sprintf("%s_%d", itemID, reservationID)
+}
+
+func (i *InstantDB) TryReserve(itemId string, quantity int) (int32, error) {
 	qtd, err := i.Query(itemId)
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	if qtd < quantity {
-		return outOfStockError
+		return 0, outOfStockError
 	}
 
-	inventory[fmt.Sprintf("reserved_%s", itemId)] += quantity
+	rid := atomic.AddInt32(&reservationId, 1)
+	inventory[buildReservationKey(itemId, rid)] += quantity
 	inventory[itemId] -= quantity
 
-	return nil
+	return rid, nil
 }
 
-func (i *InstantDB) ReleaseReservation(itemId string, quantity int) error {
-	qtd, exists := inventory[fmt.Sprintf("reserved_%s", itemId)]
+func (i *InstantDB) ReleaseReservation(itemId string, rid int32) error {
+	rk := buildReservationKey(itemId, rid)
+	qtd, exists := reservations[rk]
 	if !exists {
-		return dontExistsError
-	}
-
-	if qtd < quantity {
 		return invalidReservation
 	}
 
-	inventory[fmt.Sprintf("reserved_%s", itemId)] -= quantity
-	inventory[itemId] += quantity
+	delete(inventory, rk)
+	inventory[itemId] += qtd
 
 	return nil
 }
 
-func (i *InstantDB) ConfirmReservation(itemID string, quantity int) error {
-	qtd, exists := inventory[fmt.Sprintf("reserved_%s", itemID)]
+func (i *InstantDB) ConfirmReservation(itemID string, rid int32) error {
+	rk := buildReservationKey(itemID, rid)
+	_, exists := inventory[rk]
 	if !exists {
-		return dontExistsError
-	}
-
-	if qtd < quantity {
 		return invalidReservation
 	}
 
-	inventory[fmt.Sprintf("reserved_%s", itemID)] -= quantity
+	delete(inventory, rk)
 
 	return nil
 }
@@ -105,19 +106,19 @@ func (i *NetworkLagDB) Update(itemID string, quantity int) error {
 	return i.db.Update(itemID, quantity)
 }
 
-func (i *NetworkLagDB) TryReserve(itemId string, quantity int) error {
+func (i *NetworkLagDB) TryReserve(itemId string, quantity int) (int32, error) {
 	i.delay()
 	return i.db.TryReserve(itemId, quantity)
 }
 
-func (i *NetworkLagDB) ReleaseReservation(itemId string, quantity int) error {
+func (i *NetworkLagDB) ReleaseReservation(itemId string, rid int32) error {
 	i.delay()
-	return i.db.ReleaseReservation(itemId, quantity)
+	return i.db.ReleaseReservation(itemId, rid)
 }
 
-func (i *NetworkLagDB) ConfirmReservation(itemID string, quantity int) error {
+func (i *NetworkLagDB) ConfirmReservation(itemID string, rid int32) error {
 	i.delay()
-	return i.db.ConfirmReservation(itemID, quantity)
+	return i.db.ConfirmReservation(itemID, rid)
 }
 
 func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
@@ -130,14 +131,15 @@ func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
 		return false, outOfStockError
 	}
 
-	if err = db.TryReserve(itemId, quantity); err != nil {
+	rid, err := db.TryReserve(itemId, quantity)
+	if err != nil {
 		return false, err
 	}
+	defer db.ReleaseReservation(itemId, rid)
 
 	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
 
-	if err = db.ConfirmReservation(itemId, quantity); err != nil {
-		db.ReleaseReservation(itemId, quantity)
+	if err = db.ConfirmReservation(itemId, rid); err != nil {
 		return false, err
 	}
 
