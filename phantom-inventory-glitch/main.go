@@ -12,10 +12,14 @@ import (
 var inventory = make(map[string]int)
 var outOfStockError = errors.New("OUT_OF_STOCK")
 var dontExistsError = errors.New("ITEM_DONT_EXISTS")
+var invalidReservation = errors.New("INVALID_RESERVATION")
 
 type InventoryDB interface {
 	Query(itemID string) (int, error)
+	TryReserve(itemID string, quantity int) error
 	Update(itemID string, quantity int) error
+	ReleaseReservation(itemID string, quantity int) error
+	ConfirmReservation(itemID string, quantity int) error
 }
 
 type InstantDB struct {
@@ -34,20 +38,86 @@ func (i *InstantDB) Update(itemId string, quantity int) error {
 	return nil
 }
 
+func (i *InstantDB) TryReserve(itemId string, quantity int) error {
+	qtd, err := i.Query(itemId)
+
+	if err != nil {
+		return err
+	}
+
+	if qtd < quantity {
+		return outOfStockError
+	}
+
+	inventory[fmt.Sprintf("reserved_%s", itemId)] += quantity
+	inventory[itemId] -= quantity
+
+	return nil
+}
+
+func (i *InstantDB) ReleaseReservation(itemId string, quantity int) error {
+	qtd, exists := inventory[fmt.Sprintf("reserved_%s", itemId)]
+	if !exists {
+		return dontExistsError
+	}
+
+	if qtd < quantity {
+		return invalidReservation
+	}
+
+	inventory[fmt.Sprintf("reserved_%s", itemId)] -= quantity
+	inventory[itemId] += quantity
+
+	return nil
+}
+
+func (i *InstantDB) ConfirmReservation(itemID string, quantity int) error {
+	qtd, exists := inventory[fmt.Sprintf("reserved_%s", itemID)]
+	if !exists {
+		return dontExistsError
+	}
+
+	if qtd < quantity {
+		return invalidReservation
+	}
+
+	inventory[fmt.Sprintf("reserved_%s", itemID)] -= quantity
+
+	return nil
+}
+
 type NetworkLagDB struct {
 	db InventoryDB
 }
 
 func (i *NetworkLagDB) Query(itemID string) (int, error) {
-	delayMs := rand.Int31n(150) + 50
-	<-time.After(time.Duration(delayMs) * time.Millisecond)
+	i.delay()
 	return i.db.Query(itemID)
 }
 
-func (i *NetworkLagDB) Update(itemID string, quantity int) error {
+func (*NetworkLagDB) delay() {
 	delayMs := rand.Int31n(150) + 50
 	<-time.After(time.Duration(delayMs) * time.Millisecond)
+}
+
+func (i *NetworkLagDB) Update(itemID string, quantity int) error {
+	i.delay()
 	return i.db.Update(itemID, quantity)
+}
+
+func (i *NetworkLagDB) TryReserve(itemId string, quantity int) error {
+	i.delay()
+	return i.db.TryReserve(itemId, quantity)
+}
+
+func (i *NetworkLagDB) ReleaseReservation(itemId string, quantity int) error {
+	i.delay()
+	return i.db.ReleaseReservation(itemId, quantity)
+}
+
+func (i *NetworkLagDB) ConfirmReservation(itemID string, quantity int) error {
+	i.delay()
+	return i.db.ConfirmReservation(itemID, quantity)
 }
 
 func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
@@ -56,11 +126,11 @@ func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
 		return false, err
 	}
 
-	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
-
 	if qtd < quantity {
 		return false, outOfStockError
 	}
+
+	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
 
 	newQtd := qtd - quantity
 
