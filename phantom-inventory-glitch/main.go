@@ -25,9 +25,12 @@ type InventoryDB interface {
 }
 
 type InstantDB struct {
+	lock *sync.Mutex
 }
 
 func (i *InstantDB) Query(itemID string) (int, error) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	qtd, exists := inventory[itemID]
 	if !exists {
 		return 0, dontExistsError
@@ -36,6 +39,8 @@ func (i *InstantDB) Query(itemID string) (int, error) {
 }
 
 func (i *InstantDB) Update(itemId string, quantity int) error {
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	inventory[itemId] = quantity
 	return nil
 }
@@ -56,7 +61,10 @@ func (i *InstantDB) TryReserve(itemId string, quantity int) (int32, error) {
 	}
 
 	rid := atomic.AddInt32(&reservationId, 1)
-	inventory[buildReservationKey(itemId, rid)] += quantity
+
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	reservations[buildReservationKey(itemId, rid)] += quantity
 	inventory[itemId] -= quantity
 
 	return rid, nil
@@ -64,12 +72,14 @@ func (i *InstantDB) TryReserve(itemId string, quantity int) (int32, error) {
 
 func (i *InstantDB) ReleaseReservation(itemId string, rid int32) error {
 	rk := buildReservationKey(itemId, rid)
+	i.lock.Lock()
+	defer i.lock.Unlock()
 	qtd, exists := reservations[rk]
 	if !exists {
 		return invalidReservation
 	}
 
-	delete(inventory, rk)
+	delete(reservations, rk)
 	inventory[itemId] += qtd
 
 	return nil
@@ -77,12 +87,14 @@ func (i *InstantDB) ReleaseReservation(itemId string, rid int32) error {
 
 func (i *InstantDB) ConfirmReservation(itemID string, rid int32) error {
 	rk := buildReservationKey(itemID, rid)
-	_, exists := inventory[rk]
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	_, exists := reservations[rk]
 	if !exists {
 		return invalidReservation
 	}
 
-	delete(inventory, rk)
+	delete(reservations, rk)
 
 	return nil
 }
@@ -135,11 +147,11 @@ func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer db.ReleaseReservation(itemId, rid)
 
 	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
 
 	if err = db.ConfirmReservation(itemId, rid); err != nil {
+		db.ReleaseReservation(itemId, rid)
 		return false, err
 	}
 
@@ -151,8 +163,11 @@ func init() {
 }
 
 func main() {
+	m := sync.Mutex{}
 	db := NetworkLagDB{
-		db: &InstantDB{},
+		db: &InstantDB{
+			lock: &m,
+		},
 	}
 
 	var wg sync.WaitGroup
