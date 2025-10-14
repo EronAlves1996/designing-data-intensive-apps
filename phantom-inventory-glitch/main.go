@@ -130,11 +130,16 @@ func placeOrder(db InventoryDB, itemId string, quantity int) (bool, error) {
 		return false, outOfStockError
 	}
 
+	if err = db.TryReserve(itemId, quantity); err != nil {
+		return false, err
+	}
+
 	<-time.After(time.Duration(rand.Int31n(50)) * time.Millisecond)
 
-	newQtd := qtd - quantity
-
-	db.Update(itemId, newQtd)
+	if err = db.ConfirmReservation(itemId, quantity); err != nil {
+		db.ReleaseReservation(itemId, quantity)
+		return false, err
+	}
 
 	return true, nil
 }
