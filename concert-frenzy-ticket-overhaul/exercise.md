@@ -36,9 +36,13 @@ Design and reason about the core decision flow for the `placeHold(userId, eventI
 - **The Final Hurdle:** The `placeHold` operation is not just about decrementing a counter. It must also create a hold record in a database and emit a `HoldPlaced` event to a message queue for the payment service to consume. All of this must be atomic: either all steps happen, or none do (e.g., if the database is unavailable, the ticket counter should not be decremented).
 - **Proposal 1:** Use a **Two-Phase Commit (2PC)** protocol between the ticket inventory service (the linearizable store), the holds database, and the message queue.
   - What is the role of the "coordinator" in this setup?
+    > **A:** The coordinator here should orquestrate the operations between all the participants: it needs to send the request for each of them, like call the inventory service to make a hold, write to the database and to the message queue, then prepare for commit on each of them, and, based on they answer, abort or commit the result on them
   - What is a major operational drawback of 2PC that might make your team hesitant to use it?
+    > **A:** If any of these services go down, 2PC will likely to fail. If the coordinator go down between a prepare for commit request, it's likely each of the services gonna hold a lock for ever.
 - **Proposal 2:** Use a **Total Order Broadcast** mechanism, implemented via a consensus algorithm like Raft.
   - How does this change the architecture? Instead of three separate resources, what becomes the single "source of truth" that all nodes agree on?
+    > **A:** Now, the single source of truth should be a replication log. Outbox pattern works like that, but now, we need a leader: which resource should be the leader in this case? After leader election, the leader should maintain the replication log, and updates the replication log each time a request is made and each time some resource indicates that the operation was processed.
   - Explain how broadcasting a message like `[tx_id: 789, operation: placeHold, user: Alice, tickets: 2]` through a total order broadcast log ensures consistency across all services (inventory, database, queue).
+    > **A:** When broadcasting this message, all the services gonna receive this message at the same time, but the next messages will not be delivered without a confirmation that this message was successfully processed from the services. If a service go down, when it is recovered, the service will receive the last messages when it was sleeping.
 
 This kata forces you to apply the abstract concepts of linearizability, causality, and consensus to a high-stakes, realistic business problem, moving from identifying the problem to evaluating different solution architectures.
