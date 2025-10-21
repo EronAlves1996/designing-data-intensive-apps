@@ -17,8 +17,11 @@ Design and reason about the core decision flow for the `placeHold(userId, eventI
 
 - **Scenario A:** A user, Alice, clicks "Buy Now" for the last 2 tickets from a node in Europe. At the exact same time, user Bob clicks for the last 2 tickets from a node in North America.
 - **Question:** Describe what can happen in the current, non-linearizable system. How could both Alice and Bob be led to believe they have secured the tickets?
+  > **A:** As the system actually is not linearizable, actually the data storage acts as splitted, and we have splitted brains, and the writes occur concurrently. We have a bunch of holds occuring at the same time on various nodes, which we loose information and causality guarantees. Alice and Bob actually think they have secured the tickets, but the final result is actually undefined: may they have secured, may they not have
 - **Decision:** Your team proposes using a linearizable datastore (like etcd or ZooKeeper) to manage the ticket inventory counter. Explain _why_ linearizability is the correct guarantee here. What is the specific "illusion" it creates that solves the double-selling problem?
+  > **A:** Linearizability is make the system act like it have a single data storage. That way, the ticket inventory is supposed to be only one, and double selling is now not a problem, because, if we have only a single ticket inventory, and not two, now, every time someone hold a ticket, actually he holds the ticket, and he's not fooled about splitted data storage and brains problems
 - **Trade-off:** The product manager is worried about performance. What is the primary **Cost of Linearizability** you must explain to them? (Hint: Think about what happens during a network partition).
+  > **A:** The primary cost here is, if the network is failed apart, then we should choose between availability or consistency. If we choose availability, then we need to cope with the possible consequences of database failovers and leader election, and possible data loss. If we choose consistency, then we have to cope with possible angry users that cannot use our system because it is unavailable.
 
 **Part 2: Causality and User Confusion (10 mins)**
 
